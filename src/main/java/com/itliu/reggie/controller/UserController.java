@@ -8,13 +8,16 @@ import com.itliu.reggie.utils.Identifyingcode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @create 2023-05-27-17:11
@@ -25,6 +28,8 @@ import java.util.Map;
 public class UserController {
     @Autowired
     private UserService userService;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     //发送验证码
     @PostMapping("/sendMsg")
@@ -37,8 +42,8 @@ public class UserController {
             String code = Identifyingcode.idetifyingcode(4);
             log.info("code={}",code);
 
-            //需要将生成的验证码保存到Session
-            session.setAttribute(phone,code);
+            //需要将生成的验证码保存到redis
+            stringRedisTemplate.opsForValue().set(phone,code,5, TimeUnit.MINUTES);
         }
         return R.success("手机验证码短信发送成功");
     }
@@ -75,7 +80,8 @@ public class UserController {
                 return R.success(user);
             }
 //        }
-
+        //如果用户登录成功，则删除redis中的验证码信息
+        stringRedisTemplate.delete(phone);
         return R.error("登录失败");
     }
 }
